@@ -19,6 +19,7 @@
 package org.apache.skywalking.apm.plugin.httpClient.v4;
 
 import java.lang.reflect.Method;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -34,6 +35,8 @@ import org.apache.skywalking.apm.agent.core.context.ContextManager;
 import org.apache.skywalking.apm.agent.core.context.tag.Tags;
 import org.apache.skywalking.apm.agent.core.context.trace.AbstractSpan;
 import org.apache.skywalking.apm.agent.core.context.trace.SpanLayer;
+import org.apache.skywalking.apm.agent.core.logging.api.ILog;
+import org.apache.skywalking.apm.agent.core.logging.api.LogManager;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.EnhancedInstance;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.InstanceMethodsAroundInterceptor;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.MethodInterceptResult;
@@ -42,6 +45,7 @@ import org.apache.skywalking.apm.plugin.httpclient.HttpClientPluginConfig;
 import org.apache.skywalking.apm.util.StringUtil;
 
 public class HttpClientExecuteInterceptor implements InstanceMethodsAroundInterceptor {
+    private static final ILog LOGGER = LogManager.getLogger(HttpClientExecuteInterceptor.class);
 
     @Override
     public void beforeMethod(EnhancedInstance objInst, Method method, Object[] allArguments, Class<?>[] argumentsTypes,
@@ -73,6 +77,19 @@ public class HttpClientExecuteInterceptor implements InstanceMethodsAroundInterc
         }
         if (HttpClientPluginConfig.Plugin.HttpClient.COLLECT_HTTP_PARAMS) {
             collectHttpParam(httpRequest, span);
+        }
+
+        LOGGER.warn("Invoke URI: {}", requestURI);
+        if (requestURI.startsWith("/api/") || requestURI.startsWith("/inter-api/") || requestURI.startsWith("/openapi/")) {
+            InetAddress local = InetAddress.getLocalHost();
+            String localIp = local.getHostAddress();
+            String localHostName = local.getHostName();
+
+            String remoteURL = uri;
+            String remoteAddr = httpHost.getHostName();
+            String requestMethod = httpRequest.getRequestLine().getMethod();
+            LOGGER.warn("local_hostname:{} local_id: {} -> remote_addr: {} remote_url: {} {}",
+                    localHostName, localIp, remoteAddr, requestMethod, remoteURL);
         }
     }
 

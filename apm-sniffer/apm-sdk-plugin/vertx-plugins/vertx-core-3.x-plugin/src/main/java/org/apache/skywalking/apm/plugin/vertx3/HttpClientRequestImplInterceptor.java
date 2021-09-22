@@ -25,6 +25,8 @@ import org.apache.skywalking.apm.agent.core.context.ContextManager;
 import org.apache.skywalking.apm.agent.core.context.tag.Tags;
 import org.apache.skywalking.apm.agent.core.context.trace.AbstractSpan;
 import org.apache.skywalking.apm.agent.core.context.trace.SpanLayer;
+import org.apache.skywalking.apm.agent.core.logging.api.ILog;
+import org.apache.skywalking.apm.agent.core.logging.api.LogManager;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.EnhancedInstance;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.InstanceConstructorInterceptor;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.InstanceMethodsAroundInterceptor;
@@ -32,8 +34,11 @@ import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.MethodInt
 import org.apache.skywalking.apm.network.trace.component.ComponentsDefine;
 
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 public class HttpClientRequestImplInterceptor implements InstanceMethodsAroundInterceptor {
+    public static final ILog LOGGER = LogManager.getLogger(HttpClientRequestImplInterceptor.class);
 
     static class HttpClientRequestContext {
         String remotePeer;
@@ -75,7 +80,7 @@ public class HttpClientRequestImplInterceptor implements InstanceMethodsAroundIn
 
     @Override
     public void beforeMethod(EnhancedInstance objInst, Method method, Object[] allArguments, Class<?>[] argumentsTypes,
-                             MethodInterceptResult result) {
+                             MethodInterceptResult result) throws UnknownHostException {
         HttpClientRequestContext requestContext = (HttpClientRequestContext) objInst.getSkyWalkingDynamicField();
         if (!requestContext.sent) {
             HttpClientRequest request = (HttpClientRequest) objInst;
@@ -93,6 +98,20 @@ public class HttpClientRequestImplInterceptor implements InstanceMethodsAroundIn
                 request.headers().add(next.getHeadKey(), next.getHeadValue());
             }
             requestContext.vertxContext = new VertxContext(ContextManager.capture(), span.prepareForAsync());
+
+            String uri = request.uri();
+            LOGGER.warn("Invoke URI: {}", uri);
+            if (uri.startsWith("/api/") || uri.startsWith("/inter-api/") || uri.startsWith("/openapi/")) {
+                InetAddress local = InetAddress.getLocalHost();
+                String localIp = local.getHostAddress();
+                String localHostName = local.getHostName();
+                String remoteURL = request.absoluteURI();
+                String remoteAddr = request.getHost();
+                String requestMethod = request.method().name();
+                LOGGER.warn("local_hostname:{} local_id: {} -> remote_addr: {} remote_url: {} {}",
+                        localHostName, localIp, remoteAddr, requestMethod, remoteURL);
+            }
+
         }
     }
 
