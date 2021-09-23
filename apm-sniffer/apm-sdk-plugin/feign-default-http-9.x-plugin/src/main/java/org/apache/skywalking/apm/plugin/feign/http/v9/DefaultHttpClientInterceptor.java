@@ -22,7 +22,10 @@ import feign.Request;
 import feign.Response;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,6 +39,8 @@ import org.apache.skywalking.apm.agent.core.context.ContextManager;
 import org.apache.skywalking.apm.agent.core.context.tag.Tags;
 import org.apache.skywalking.apm.agent.core.context.trace.AbstractSpan;
 import org.apache.skywalking.apm.agent.core.context.trace.SpanLayer;
+import org.apache.skywalking.apm.agent.core.logging.api.ILog;
+import org.apache.skywalking.apm.agent.core.logging.api.LogManager;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.EnhancedInstance;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.InstanceMethodsAroundInterceptor;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.MethodInterceptResult;
@@ -48,6 +53,7 @@ import static feign.Util.valuesOrEmpty;
  * {@link DefaultHttpClientInterceptor} intercept the default implementation of http calls by the Feign.
  */
 public class DefaultHttpClientInterceptor implements InstanceMethodsAroundInterceptor {
+    private static final ILog LOGGER = LogManager.getLogger(DefaultHttpClientInterceptor.class);
 
     private static final String CONTENT_TYPE_HEADER = "Content-Type";
     private static Field FIELD_HEADERS_OF_REQUEST;
@@ -97,6 +103,8 @@ public class DefaultHttpClientInterceptor implements InstanceMethodsAroundInterc
         Tags.URL.set(span, request.url());
         SpanLayer.asHttp(span);
 
+        logRequestInfo(request);
+
         if (FeignPluginConfig.Plugin.Feign.COLLECT_REQUEST_BODY) {
             boolean needCollectHttpBody = false;
             Iterator<String> stringIterator = valuesOrEmpty(request.headers(), CONTENT_TYPE_HEADER).iterator();
@@ -124,6 +132,23 @@ public class DefaultHttpClientInterceptor implements InstanceMethodsAroundInterc
             headers.putAll(request.headers());
 
             FIELD_HEADERS_OF_REQUEST.set(request, Collections.unmodifiableMap(headers));
+        }
+    }
+
+    private void logRequestInfo(Request request) throws MalformedURLException, UnknownHostException {
+        URL url = new URL(request.url());
+        String path = url.getPath();
+        LOGGER.warn("Invoke URI: {}", path);
+        if (path.startsWith("/api/") || path.startsWith("/inter-api/") || path.startsWith("/openapi/")) {
+            InetAddress local = InetAddress.getLocalHost();
+            String localIp = local.getHostAddress();
+            String localHostName = local.getHostName();
+
+            String remoteURL = url.toString();
+            String remoteAddr = url.getHost();
+            String requestMethod = request.method();
+            LOGGER.warn("local_hostname:{} local_id: {} -> remote_addr: {} remote_url: {} {}",
+                    localHostName, localIp, remoteAddr, requestMethod, remoteURL);
         }
     }
 
