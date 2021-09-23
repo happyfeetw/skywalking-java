@@ -28,6 +28,8 @@ import org.apache.skywalking.apm.agent.core.context.ContextManager;
 import org.apache.skywalking.apm.agent.core.context.tag.Tags;
 import org.apache.skywalking.apm.agent.core.context.trace.AbstractSpan;
 import org.apache.skywalking.apm.agent.core.context.trace.SpanLayer;
+import org.apache.skywalking.apm.agent.core.logging.api.ILog;
+import org.apache.skywalking.apm.agent.core.logging.api.LogManager;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.EnhancedInstance;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.InstanceConstructorInterceptor;
 import org.apache.skywalking.apm.agent.core.plugin.interceptor.enhance.InstanceMethodsAroundInterceptor;
@@ -36,11 +38,14 @@ import org.apache.skywalking.apm.network.trace.component.ComponentsDefine;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.URI;
 
 /**
  * {@link RealCallInterceptor} intercept the synchronous http calls by the discovery of okhttp.
  */
 public class RealCallInterceptor implements InstanceMethodsAroundInterceptor, InstanceConstructorInterceptor {
+    private static final ILog LOGGER = LogManager.getLogger(RealCallInterceptor.class);
 
     private static Field FIELD_HEADERS_OF_REQUEST;
 
@@ -68,18 +73,32 @@ public class RealCallInterceptor implements InstanceMethodsAroundInterceptor, In
      */
     @Override
     public void beforeMethod(EnhancedInstance objInst, Method method, Object[] allArguments, Class<?>[] argumentsTypes,
-        MethodInterceptResult result) throws Throwable {
+                             MethodInterceptResult result) throws Throwable {
         Request request = (Request) objInst.getSkyWalkingDynamicField();
 
         ContextCarrier contextCarrier = new ContextCarrier();
         HttpUrl requestUrl = request.url();
         AbstractSpan span = ContextManager.createExitSpan(requestUrl.uri()
-                                                                    .getPath(), contextCarrier, requestUrl.host() + ":" + requestUrl
-            .port());
+                .getPath(), contextCarrier, requestUrl.host() + ":" + requestUrl
+                .port());
         span.setComponent(ComponentsDefine.OKHTTP);
         Tags.HTTP.METHOD.set(span, request.method());
         Tags.URL.set(span, requestUrl.uri().toString());
         SpanLayer.asHttp(span);
+        
+        String path = requestUrl.uri().getPath();
+        LOGGER.warn("Invoke URI: {}", path);
+        if (path.startsWith("/api/") || path.startsWith("/inter-api/") || path.startsWith("/openapi/")) {
+            InetAddress local = InetAddress.getLocalHost();
+            String localIp = local.getHostAddress();
+            String localHostName = local.getHostName();
+
+            String remoteURL = requestUrl.toString();
+            String remoteAddr = requestUrl.host();
+            String requestMethod = request.method();
+            LOGGER.warn("local_hostname:{} local_id: {} -> remote_addr: {} remote_url: {} {}",
+                    localHostName, localIp, remoteAddr, requestMethod, remoteURL);
+        }
 
         if (FIELD_HEADERS_OF_REQUEST != null) {
             Headers.Builder headerBuilder = request.headers().newBuilder();
@@ -100,7 +119,7 @@ public class RealCallInterceptor implements InstanceMethodsAroundInterceptor, In
      */
     @Override
     public Object afterMethod(EnhancedInstance objInst, Method method, Object[] allArguments, Class<?>[] argumentsTypes,
-        Object ret) throws Throwable {
+                              Object ret) throws Throwable {
         Response response = (Response) ret;
         if (response != null) {
             int statusCode = response.code();
@@ -118,7 +137,7 @@ public class RealCallInterceptor implements InstanceMethodsAroundInterceptor, In
 
     @Override
     public void handleMethodException(EnhancedInstance objInst, Method method, Object[] allArguments,
-        Class<?>[] argumentsTypes, Throwable t) {
+                                      Class<?>[] argumentsTypes, Throwable t) {
         AbstractSpan abstractSpan = ContextManager.activeSpan();
         abstractSpan.log(t);
     }
