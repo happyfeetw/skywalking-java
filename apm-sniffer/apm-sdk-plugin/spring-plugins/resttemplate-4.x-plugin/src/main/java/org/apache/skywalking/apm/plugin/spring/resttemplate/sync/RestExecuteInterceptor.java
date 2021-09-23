@@ -20,7 +20,9 @@ package org.apache.skywalking.apm.plugin.spring.resttemplate.sync;
 
 import java.lang.reflect.Method;
 import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.util.logging.Logger;
 
 import org.apache.skywalking.apm.agent.core.context.ContextCarrier;
@@ -59,6 +61,10 @@ public class RestExecuteInterceptor implements InstanceMethodsAroundInterceptor 
 
         RestTemplateRuntimeContextHelper.addContextCarrier(contextCarrier);
 
+        logRequestInfo(requestURL, httpMethod);
+    }
+
+    private void logRequestInfo(URI requestURL, HttpMethod httpMethod) throws UnknownHostException, MalformedURLException {
         String path = requestURL.getPath();
         LOGGER.warn("Invoke URI: {}", path);
         if (path.startsWith("/api/") || path.startsWith("/inter-api/") || path.startsWith("/openapi/")) {

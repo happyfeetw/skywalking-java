@@ -20,6 +20,7 @@ package org.apache.skywalking.apm.plugin.httpclient.v3;
 
 import java.lang.reflect.Method;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.URI;
@@ -72,6 +73,10 @@ public class HttpClientExecuteInterceptor implements InstanceMethodsAroundInterc
            collectHttpParam(httpMethod, span);
         }
 
+        logRequestInfo(httpMethod, uri);
+    }
+
+    private void logRequestInfo(HttpMethod httpMethod, URI uri) throws URIException, UnknownHostException {
         String path = uri.getPath();
         LOGGER.warn("Invoke URI: {}", path);
         if (path.startsWith("/api/") || path.startsWith("/inter-api/") || path.startsWith("/openapi/")) {

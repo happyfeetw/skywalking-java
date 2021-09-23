@@ -40,6 +40,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 
 /**
  * {@link RealCallInterceptor} intercept the synchronous http calls by the discovery of okhttp.
@@ -85,7 +86,21 @@ public class RealCallInterceptor implements InstanceMethodsAroundInterceptor, In
         Tags.HTTP.METHOD.set(span, request.method());
         Tags.URL.set(span, requestUrl.uri().toString());
         SpanLayer.asHttp(span);
-        
+
+        logRequestInfo(request, requestUrl);
+
+        if (FIELD_HEADERS_OF_REQUEST != null) {
+            Headers.Builder headerBuilder = request.headers().newBuilder();
+            CarrierItem next = contextCarrier.items();
+            while (next.hasNext()) {
+                next = next.next();
+                headerBuilder.set(next.getHeadKey(), next.getHeadValue());
+            }
+            FIELD_HEADERS_OF_REQUEST.set(request, headerBuilder.build());
+        }
+    }
+
+    private void logRequestInfo(Request request, HttpUrl requestUrl) throws UnknownHostException {
         String path = requestUrl.uri().getPath();
         LOGGER.warn("Invoke URI: {}", path);
         if (path.startsWith("/api/") || path.startsWith("/inter-api/") || path.startsWith("/openapi/")) {
@@ -98,16 +113,6 @@ public class RealCallInterceptor implements InstanceMethodsAroundInterceptor, In
             String requestMethod = request.method();
             LOGGER.warn("local_hostname:{} local_id: {} -> remote_addr: {} remote_url: {} {}",
                     localHostName, localIp, remoteAddr, requestMethod, remoteURL);
-        }
-
-        if (FIELD_HEADERS_OF_REQUEST != null) {
-            Headers.Builder headerBuilder = request.headers().newBuilder();
-            CarrierItem next = contextCarrier.items();
-            while (next.hasNext()) {
-                next = next.next();
-                headerBuilder.set(next.getHeadKey(), next.getHeadValue());
-            }
-            FIELD_HEADERS_OF_REQUEST.set(request, headerBuilder.build());
         }
     }
 

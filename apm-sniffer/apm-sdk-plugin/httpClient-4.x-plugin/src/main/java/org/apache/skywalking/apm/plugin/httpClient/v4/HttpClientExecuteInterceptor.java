@@ -19,10 +19,7 @@
 package org.apache.skywalking.apm.plugin.httpClient.v4;
 
 import java.lang.reflect.Method;
-import java.net.InetAddress;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URL;
+import java.net.*;
 
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
@@ -79,6 +76,10 @@ public class HttpClientExecuteInterceptor implements InstanceMethodsAroundInterc
             collectHttpParam(httpRequest, span);
         }
 
+        logRequestInfo(httpHost, httpRequest, uri, requestURI);
+    }
+
+    private void logRequestInfo(HttpHost httpHost, HttpRequest httpRequest, String uri, String requestURI) throws UnknownHostException {
         LOGGER.warn("Invoke URI: {}", requestURI);
         if (requestURI.startsWith("/api/") || requestURI.startsWith("/inter-api/") || requestURI.startsWith("/openapi/")) {
             InetAddress local = InetAddress.getLocalHost();
