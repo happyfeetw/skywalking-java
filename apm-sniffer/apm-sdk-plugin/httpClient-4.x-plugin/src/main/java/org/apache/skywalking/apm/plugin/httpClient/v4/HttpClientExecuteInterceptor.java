@@ -19,8 +19,11 @@
 package org.apache.skywalking.apm.plugin.httpClient.v4;
 
 import java.lang.reflect.Method;
-import java.net.*;
-
+import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
+import java.net.UnknownHostException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;

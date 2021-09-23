@@ -23,7 +23,6 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.UnknownHostException;
-import java.util.logging.Logger;
 
 import org.apache.skywalking.apm.agent.core.context.ContextCarrier;
 import org.apache.skywalking.apm.agent.core.context.ContextManager;
@@ -41,15 +40,16 @@ import org.springframework.http.HttpMethod;
 
 public class RestExecuteInterceptor implements InstanceMethodsAroundInterceptor {
     private static final ILog LOGGER = LogManager.getLogger(RestExecuteInterceptor.class);
+
     @Override
     public void beforeMethod(EnhancedInstance objInst, Method method, Object[] allArguments, Class<?>[] argumentsTypes,
-        MethodInterceptResult result) throws Throwable {
+                             MethodInterceptResult result) throws Throwable {
         final URI requestURL = (URI) allArguments[0];
         final HttpMethod httpMethod = (HttpMethod) allArguments[1];
         final ContextCarrier contextCarrier = new ContextCarrier();
 
         String remotePeer = requestURL.getHost() + ":" + (requestURL.getPort() > 0 ? requestURL.getPort() : "https".equalsIgnoreCase(requestURL
-            .getScheme()) ? 443 : 80);
+                .getScheme()) ? 443 : 80);
         String formatURIPath = requestURL.getPath();
         AbstractSpan span = ContextManager.createExitSpan(formatURIPath, contextCarrier, remotePeer);
 
@@ -82,7 +82,7 @@ public class RestExecuteInterceptor implements InstanceMethodsAroundInterceptor 
 
     @Override
     public Object afterMethod(EnhancedInstance objInst, Method method, Object[] allArguments, Class<?>[] argumentsTypes,
-        Object ret) throws Throwable {
+                              Object ret) throws Throwable {
         RestTemplateRuntimeContextHelper.cleanContextCarrier();
         ContextManager.stopSpan();
         return ret;
@@ -90,7 +90,7 @@ public class RestExecuteInterceptor implements InstanceMethodsAroundInterceptor 
 
     @Override
     public void handleMethodException(EnhancedInstance objInst, Method method, Object[] allArguments,
-        Class<?>[] argumentsTypes, Throwable t) {
+                                      Class<?>[] argumentsTypes, Throwable t) {
         ContextManager.activeSpan().log(t);
     }
 }

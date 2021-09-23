@@ -39,7 +39,6 @@ import org.apache.skywalking.apm.network.trace.component.ComponentsDefine;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
-import java.net.URI;
 import java.net.UnknownHostException;
 
 /**
